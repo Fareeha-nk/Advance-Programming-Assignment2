@@ -1,42 +1,59 @@
-import path from 'path';
-import fs from 'fs/promises';
+import React from "react";
+import useSWR from "swr";
+import data from "../../../Data/Properties.json"; 
+import { useRouter } from "next/router";
 
-export default function DirectorPage(props){
-    return (
-        <div>
-            <h1> {props.director.name}</h1>
-            <p><strong>Biography: </strong>{props.director.biography}</p>
-        </div>
-    );
-}
+const fetcher = ([_, movieId]) => {
+  const movie = data.movies.find((movie) => movie.id === movieId);
+
+  if (!movie) return null;
+
+  const director = data.directors.find((director) => director.id === movie.directorId);
+
+  if (!director) return null;
 
 
-export async function getStaticPaths(){
-    const p=path.join(process.cwd(), 'Data', 'Properties.json');
-    const data= await fs.readFile(p);
-    const parsed_data=JSON.parse(data);
+  const directedMovies = data.movies.filter((m) => m.directorId === director.id);
 
-    const paths=parsed_data.movies.map(movie => ({
-        params: {id: movie.id},
-    }));
+  return {
+    director,
+    movieTitle: movie.title,
+    directedMovies,
+  };
+};
 
-    return {
-        paths,
-        fallback: false,
-    };
-}
+export default function DirectorPage() {
+  const router = useRouter();
+  const movieId = router.query.id;
 
-export async function getStaticProps({params}){
-    const p=path.join(process.cwd(), 'Data', 'Properties.json');
-    const data= await fs.readFile(p);
-    const parsed_data=JSON.parse(data);
+  const { data: result, error, isValidating } = useSWR(
+    movieId ? ["movie-director", movieId] : null,
+    fetcher
+  );
 
-    const movie= parsed_data.movies.find(m => m.id===params.id);
-    const director=parsed_data.directors.find(d => d.id===movie.directorId);
+  if (isValidating) return <div>Loading...</div>;
+  if (error) return <div>Failed to load director details: {error.message}</div>;
+  if (!result) return <div>Loading Director Details...</div>;
 
-    return {
-        props: {
-            director,
-        },
-    };
+  const { director, movieTitle, directedMovies } = result;
+
+  return (
+    <div>
+      <h1><strong>Director Details</strong></h1>
+      <ul>
+        <li>Movie: {movieTitle || "Movie title not available"}</li>
+        <li>Name: {director.name || "Name not available"}</li>
+        <li>Biography: {director.biography || "Biography not available"}</li>
+      </ul>
+
+      <h2><strong>Movies Directed</strong></h2>
+      <ul>
+        {directedMovies.map((movie) => (
+          <li key={movie.id}>
+            {movie.title} ({movie.releaseYear}) — Rating: {movie.rating}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }

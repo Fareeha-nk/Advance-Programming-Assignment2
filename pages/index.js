@@ -61,7 +61,7 @@ export async function getStaticProps() {
   if (!trending_movies) {
     return {
         notFound: true
-   }
+  }
   }
 
   return {
